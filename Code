@@ -114,3 +114,95 @@
       }
     }
   </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import * as CANNON from 'cannon-es';
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87a8c9);
+    scene.fog = new THREE.Fog(0x87a8c9, 30, 120);
+    const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 150);
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setPixelRatio(1);
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444455, 1.1));
+    const dl = new THREE.DirectionalLight(0xfff5e4, 1.2);
+    dl.position.set(25, 45, 20);
+    scene.add(dl);
+
+    const handGroup = new THREE.Group();
+    const handMat = new THREE.MeshLambertMaterial({ color: 0xff9d2e });
+    handGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.32, 0.12), handMat));
+    const tipGeo = new THREE.ConeGeometry(0.08, 0.22, 10);
+    const tip = new THREE.Mesh(tipGeo, new THREE.MeshLambertMaterial({ color: 0xffffff }));
+    tip.rotation.x = -Math.PI / 2;
+    tip.position.z = -0.18;
+    handGroup.add(tip);
+    handGroup.visible = false;
+    scene.add(handGroup);
+
+    const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -18, 0) });
+    world.broadphase = new CANNON.SAPBroadphase(world);
+    world.allowSleep = true;
+    world.solver.iterations = 6;
+    const mat = new CANNON.Material('default');
+    const cMat = new CANNON.ContactMaterial(mat, mat, { friction: 0.4, restitution: 0.2 });
+    world.addContactMaterial(cMat);
+
+    const objs = [];
+    const addBox = (w, h, d, x, y, z, c = 0x555b66) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color: c }));
+      m.position.set(x, y, z);
+      scene.add(m);
+      const b = new CANNON.Body({ mass: 0, material: mat });
+      b.addShape(new CANNON.Box(new CANNON.Vec3(w / 2, h / 2, d / 2)));
+      b.position.set(x, y, z);
+      world.addBody(b);
+    };
+
+    const spawnProp = (type, pos) => {
+      if (objs.length > 35) {
+        const old = objs.shift();
+        scene.remove(old.m);
+        world.removeBody(old.b);
+      }
+      let m, s, mass = 15;
+      if (type === 'crate') {
+        m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshLambertMaterial({ color: 0xc28548 }));
+        s = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6));
+      } else if (type === 'heavy') {
+        m = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.6, 1.6), new THREE.MeshLambertMaterial({ color: 0x3b4252 }));
+        s = new CANNON.Box(new CANNON.Vec3(0.8, 0.8, 0.8));
+        mass = 65;
+      } else if (type === 'barrel') {
+        m = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.4, 12), new THREE.MeshLambertMaterial({ color: 0xd94848 }));
+        s = new CANNON.Cylinder(0.5, 0.5, 1.4, 10);
+        mass = 20;
+      } else {
+        m = new THREE.Mesh(new THREE.SphereGeometry(0.65, 14, 14), new THREE.MeshLambertMaterial({ color: 0x38bdf8 }));
+        s = new CANNON.Sphere(0.65);
+        mass = 8;
+      }
+      m.position.copy(pos);
+      scene.add(m);
+      const b = new CANNON.Body({ mass, material: mat, linearDamping: 0.05, angularDamping: 0.05 });
+      b.addShape(s);
+      b.position.set(pos.x, pos.y, pos.z);
+      world.addBody(b);
+      objs.push({ m, b });
+    };
+
+    addBox(90, 2, 90, 0, -1, 0, 0x4b5563);
+    addBox(90, 8, 2, 0, 4, -45, 0x374151);
+    addBox(90, 8, 2, 0, 4, 45, 0x374151);
+    addBox(2, 8, 90, -45, 4, 0, 0x374151);
+    addBox(2, 8, 90, 45, 4, 0, 0x374151);
+    addBox(14, 3, 14, -15, 1.5, -15, 0x64748b);
+    addBox(10, 6, 10, 18, 3, -18, 0x64748b);
+    addBox(4, 10, 4, 0, 5, -22, 0xd97706);
+    addBox(16, 1, 6, -15, 1.5, -5, 0x94a3b8);
+    ['crate', 'barrel', 'sphere', 'heavy'].forEach((t, i) => {
+      spawnProp(t, new THREE.Vector3((i - 1.5) * 2.2, 2, -6));
+    });
