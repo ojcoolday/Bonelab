@@ -64,3 +64,53 @@
     .btn:active { background: #ff9d2e; color: #111; }
   </style>
 </head>
+<body>
+  <div id="hud">
+    <h1 id="t-title">PHYSICS HANDS</h1>
+    <p id="t-sub">Peasant (75kg) | Slow-Mo: OFF</p>
+    <p id="t-hint" style="color:#94a3b8;">Pick a control mode</p>
+  </div>
+  <button id="switch-btn">CONTROLS</button>
+  <div id="crosshair"></div>
+
+  <div id="overlay">
+    <h2 style="color:#ff9d2e;">HALFWAY PARK SANDBOX</h2>
+    <p style="font-size:13px; color:#cbd5e1; margin-top:4px;">Select Control Style:</p>
+    <div class="grid">
+      <button class="card" data-m="touch">
+        <h3>1. Touch</h3><span>Stick + Drag Look + Buttons</span>
+      </button>
+      <button class="card" data-m="motion">
+        <h3>2. Motion (Hand Nodon)</h3><span>Tilt to grab, swing & throw</span>
+      </button>
+      <button class="card" data-m="joycon">
+        <h3>3. Joy-Con / 2</h3><span>Sideways or Paired Joy-Con</span>
+      </button>
+      <button class="card" data-m="pro">
+        <h3>4. Pro Controller</h3><span>Dual-Stick Bluetooth Layout</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="touch-ui">
+    <div id="joy"><div id="knob"></div></div>
+    <div id="look"></div>
+    <div class="btns">
+      <button class="btn" id="b-cen">CENTER</button>
+      <button class="btn" id="b-slw">SLOW</button>
+      <button class="btn" id="b-tool">TOOL</button>
+      <button class="btn" id="b-alt">ALT</button>
+      <button class="btn" id="b-zl" style="background:#0284c7;">ZL/THROW</button>
+      <button class="btn" id="b-zr" style="background:#ea580c;">ZR/GRAB</button>
+      <button class="btn" id="b-jmp" style="grid-column:span 3; height:42px;">JUMP</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com",
+        "cannon-es": "https://unpkg.com"
+      }
+    }
+  </script>
