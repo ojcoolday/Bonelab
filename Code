@@ -206,3 +206,91 @@
     ['crate', 'barrel', 'sphere', 'heavy'].forEach((t, i) => {
       spawnProp(t, new THREE.Vector3((i - 1.5) * 2.2, 2, -6));
     });
+const hp = camera.position.clone().add(off);
+handVel.subVectors(hp, prevHand).divideScalar(Math.max(rdt, 0.008));
+prevHand.copy(hp);
+handGroup.position.copy(hp);
+handGroup.quaternion.copy(camera.quaternion);
+}
+const av = avatars[avIdx];
+const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+const rgt = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+if (tIdx === 1 && zrH) {
+const { d } = ray(10);
+pBody.velocity.set(d.x * 18, d.y * 18 + 0.3, d.z * 18);
+} else {
+const w = new THREE.Vector3().addScaledVector(fwd, -mz).addScaledVector(rgt, mx);
+if (w.lengthSq() > 1) w.normalize();
+pBody.velocity.x = w.x * av.s;
+pBody.velocity.z = w.z * av.s;
+if (noclip) pBody.velocity.y = 0;
+if (jmp && Math.abs(pBody.velocity.y) < 0.25 && !noclip) pBody.velocity.y = av.j;
+}
+if (tIdx === 0) {
+const hov = !grabB ? findTarget() : grabB;
+if (mode === 'motion') handMat.color.setHex(grabB ? 0x22c55e : (hov ? 0x4ade80 : 0xff9d2e));
+if (zrH && !grabB && hov) grabB = hov;
+else if (!zrH && grabB) {
+if (mode === 'motion' && handVel.length() > 3.2) {
+const tb = handVel.clone().clampLength(0, 26);
+grabB.velocity.set(tb.x, tb.y + 2, tb.z);
+}
+grabB = null;
+}
+if (grabB) {
+const { d } = ray(10);
+const tp = mode === 'motion' ? handGroup.position.clone() : camera.position.clone().addScaledVector(d, hDist);
+const wr = Math.min(1, av.g / grabB.mass);
+grabB.velocity.set((tp.x - grabB.position.x) * 16 * wr, (tp.y - grabB.position.y) * 16 * wr, (tp.z - grabB.position.z) * 16 * wr);
+grabB.angularVelocity.scale(0.82, grabB.angularVelocity);
+if (zlP) { grabB.velocity.set(d.x * 22, d.y * 22 + 2, d.z * 22); grabB = null; }
+}
+} else if (mode === 'motion') handMat.color.setHex(0xff9d2e);
+if (tIdx === 2 && zrP) { avIdx = (avIdx + 1) % 5; pBody.mass = avatars[avIdx].m; pBody.updateMassProperties(); hud(); }
+if (tIdx === 3) {
+if (!pMode) {
+if (zrP) {
+const { res, d } = ray(35);
+const sp = res.hasHit ? new THREE.Vector3(res.hitPointWorld.x + res.hitNormalWorld.x, res.hitPointWorld.y + res.hitNormalWorld.y + 0.5, res.hitPointWorld.z + res.hitNormalWorld.z) : camera.position.clone().addScaledVector(d, 5);
+spawnProp(sTypes[sIdx], sp);
+}
+if (zlP && objs.length) { const l = objs.pop(); scene.remove(l.m); world.removeBody(l.b); }
+} else if (zrP || zlP) {
+const { res } = ray(60);
+if (res.hasHit && res.body.mass === 0) {
+const p = zrP ? bPort : oPort; p.act = p.m.visible = true;
+p.n.set(res.hitNormalWorld.x, res.hitNormalWorld.y, res.hitNormalWorld.z);
+p.m.position.set(res.hitPointWorld.x + p.n.x * 0.05, res.hitPointWorld.y + p.n.y * 0.05, res.hitPointWorld.z + p.n.z * 0.05);
+p.m.lookAt(p.m.position.clone().add(p.n));
+}
+}
+}
+if (tIdx === 4) {
+if (zlH && !gravB) { const { res } = ray(25); if (res.hasHit && res.body?.mass > 0) gravB = res.body; }
+else if (!zlH) gravB = null;
+if (gravB) {
+const { d } = ray(10), hp = camera.position.clone().addScaledVector(d, 3);
+gravB.velocity.set((hp.x - gravB.position.x) * 18, (hp.y - gravB.position.y) * 18, (hp.z - gravB.position.z) * 18);
+if (zrP) { gravB.velocity.set(d.x * 42, d.y * 42 + 3, d.z * 42); gravB = null; }
+} else if (zrP) { const { res, d } = ray(25); if (res.hasHit && res.body?.mass > 0) res.body.velocity.set(d.x * 38, d.y * 38 + 4, d.z * 38); }
+}
+if (bPort.act && oPort.act && pCool <= 0) {
+const tp = b => {
+const p = new THREE.Vector3(b.position.x, b.position.y, b.position.z);
+if (p.distanceTo(bPort.m.position) < 1.35) {
+const e = oPort.m.position.clone().addScaledVector(oPort.n, 1.6); b.position.set(e.x, e.y, e.z);
+const s = Math.max(b.velocity.length(), 7); b.velocity.set(oPort.n.x * s, oPort.n.y * s, oPort.n.z * s); pCool = 0.4;
+} else if (p.distanceTo(oPort.m.position) < 1.35) {
+const e = bPort.m.position.clone().addScaledVector(bPort.n, 1.6); b.position.set(e.x, e.y, e.z);
+const s = Math.max(b.velocity.length(), 7); b.velocity.set(bPort.n.x * s, bPort.n.y * s, bPort.n.z * s); pCool = 0.4;
+}
+};
+tp(pBody); objs.forEach(o => tp(o.b));
+}
+world.step(1 / 60, dt, 3);
+camera.position.set(pBody.position.x, pBody.position.y + (av.h - 0.55), pBody.position.z);
+objs.forEach(o => { o.m.position.copy(o.b.position); o.m.quaternion.copy(o.b.quaternion); });
+renderer.render(scene, camera);
+}
+window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+animate();
