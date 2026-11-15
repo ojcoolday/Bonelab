@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Halfway Park Sandbox</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; touch-action: none; }
+    body { overflow: hidden; background: #111; font-family: system-ui, sans-serif; color: #fff; }
+    #hud {
+      position: fixed; top: 10px; left: 10px; z-index: 10;
+      background: rgba(15,18,24,0.8); padding: 10px 14px;
+      border-radius: 10px; pointer-events: none; max-width: 310px;
+    }
+    #hud h1 { font-size: 14px; color: #ff9d2e; }
+    #hud p { font-size: 11px; color: #e2e8f0; margin-top: 2px; }
+    #switch-btn {
+      position: fixed; top: 10px; right: 10px; z-index: 15;
+      background: #1e293b; color: #fff; border: 1px solid #475569;
+      padding: 8px 12px; border-radius: 8px; font-weight: 700; font-size: 12px;
+    }
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; width: 10px; height: 10px;
+      margin: -5px 0 0 -5px; border-radius: 50%; border: 2px solid #fff;
+      pointer-events: none; z-index: 10;
+    }
+    #overlay {
+      position: fixed; inset: 0; background: rgba(10,12,16,0.95);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; padding: 16px; z-index: 30;
+    }
+    .grid {
+      display: grid; grid-template-columns: repeat(2, minmax(140px, 195px));
+      gap: 10px; margin-top: 16px;
+    }
+    .card {
+      background: #1e293b; border: 2px solid #334155;
+      border-radius: 12px; padding: 14px 10px; color: #fff;
+    }
+    .card:active { border-color: #ff9d2e; }
+    .card h3 { font-size: 14px; color: #ff9d2e; margin-bottom: 4px; }
+    .card span { font-size: 11px; color: #94a3b8; display: block; }
+    #touch-ui { position: fixed; inset: 0; pointer-events: none; z-index: 12; display: none; }
+    #joy {
+      position: fixed; bottom: 20px; left: 20px; width: 120px; height: 120px;
+      border-radius: 50%; background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.25); pointer-events: auto;
+    }
+    #knob {
+      position: absolute; top: 37px; left: 37px; width: 46px; height: 46px;
+      border-radius: 50%; background: rgba(255,157,46,0.85);
+    }
+    #look { position: fixed; top: 50px; right: 0; width: 55%; height: 55%; pointer-events: auto; }
+    .btns {
+      position: fixed; bottom: 20px; right: 20px; display: grid;
+      grid-template-columns: repeat(3, 60px); gap: 8px; pointer-events: auto;
+    }
+    .btn {
+      height: 52px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(15,23,42,0.85); color: #fff; font-weight: 700;
+      font-size: 11px; display: flex; align-items: center; justify-content: center;
+    }
+    .btn:active { background: #ff9d2e; color: #111; }
+  </style>
+</head>
