@@ -294,3 +294,173 @@ renderer.render(scene, camera);
 }
 window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 animate();
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      if (!started) return;
+      const rdt = Math.min(clock.getDelta(), 0.05);
+      const dt = rdt * (slow ? 0.35 : 1);
+      if (pCool > 0) pCool -= rdt;
+
+      let mx = ts.mx, mz = ts.mz, lx = ts.lx, ly = ts.ly;
+      ts.lx = ts.ly = 0;
+      let jmp = ts.jmp, zrH = ts.zrH, zlH = ts.zlH, zrP = ts.zrP, zlP = ts.zlP;
+      ts.jmp = ts.zrP = ts.zlP = false;
+
+      if (mode === 'motion' && bBeta !== null) {
+        const dg = Math.max(-38, Math.min(38, gGamma - bGamma));
+        const db = Math.max(-38, Math.min(38, gBeta - bBeta));
+        handX = Math.max(-0.85, Math.min(0.85, dg / 24));
+        handY = Math.max(-0.65, Math.min(0.65, -db / 24));
+        if (Math.abs(dg) > 18) yaw -= (dg - Math.sign(dg) * 18) * 0.055 * rdt;
+        if (Math.abs(db) > 18) pitch = Math.max(-1.4, Math.min(1.4, pitch - (db - Math.sign(db) * 18) * 0.045 * rdt));
+      } else {
+        handX = handY = 0;
+      }
+
+      const gps = navigator.getGamepads ? navigator.getGamepads() : [];
+      const gp = gps || gps;
+      if (gp && (mode === 'pro' || mode === 'joycon')) {
+        const dz = 0.15;
+        if (mode === 'joycon' && gp.axes.length <= 2) {
+          mx = Math.abs(gp.axes) > dz ? -gp.axes : 0;
+          mz = Math.abs(gp.axes) > dz ? gp.axes : 0;
+          if (pressed(gp, 0)) jmp = true;
+          if (pressed(gp, 1)) nextTool();
+          if (pressed(gp, 2)) { slow = !slow; hud(); }
+          if (pressed(gp, 3)) altAct();
+          zrH = gp.buttons?.pressed;
+          zlH = gp.buttons?.pressed;
+          zrP = pressed(gp, 5);
+          zlP = pressed(gp, 4);
+        } else {
+          mx = Math.abs(gp.axes) > dz ? gp.axes : 0;
+          mz = Math.abs(gp.axes) > dz ? gp.axes : 0;
+          lx += (Math.abs(gp.axes) > dz ? gp.axes : 0) * 2.4 * rdt;
+          ly += (Math.abs(gp.axes) > dz ? gp.axes : 0) * 2.0 * rdt;
+          if (pressed(gp, 0)) jmp = true;
+          if (pressed(gp, 4)) { slow = !slow; hud(); }
+          if (pressed(gp, 5)) nextTool();
+          if (pressed(gp, 3) && tIdx === 1) altAct();
+          if (pressed(gp, 2) && tIdx === 3) { pMode = !pMode; hud(); }
+          zrH = gp.buttons?.pressed;
+          zlH = gp.buttons?.pressed;
+          zrP = pressed(gp, 7);
+          zlP = pressed(gp, 6);
+          if (tIdx === 3 && !pMode) {
+            if (pressed(gp, 15)) { sIdx = (sIdx + 1) % 4; hud(); }
+            if (pressed(gp, 14)) { sIdx = (sIdx + 3) % 4; hud(); }
+          }
+        }
+      }
+
+      yaw -= lx;
+      pitch = Math.max(-1.45, Math.min(1.45, pitch - ly));
+      camera.rotation.order = 'YXZ';
+      camera.rotation.y = yaw;
+      camera.rotation.x = pitch;
+
+      if (mode === 'motion') {
+        const reach = grabB ? hDist : 2.3;
+        const off = new THREE.Vector3(handX * 1.8, handY * 1.4 - 0.1, -reach).applyQuaternion(camera.quaternion);
+        const hp = camera.position.clone().add(off);
+        handVel.subVectors(hp, prevHand).divideScalar(Math.max(rdt, 0.008));
+        prevHand.copy(hp);
+        handGroup.position.copy(hp);
+        handGroup.quaternion.copy(camera.quaternion);
+      }
+
+      const av = avatars[avIdx];
+      const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+      const rgt = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+      if (tIdx === 1 && zrH) {
+        const { d } = ray(10);
+        pBody.velocity.set(d.x * 18, d.y * 18 + 0.3, d.z * 18);
+      } else {
+        const w = new THREE.Vector3().addScaledVector(fwd, -mz).addScaledVector(rgt, mx);
+        if (w.lengthSq() > 1) w.normalize();
+        pBody.velocity.x = w.x * av.s;
+        pBody.velocity.z = w.z * av.s;
+        if (noclip) pBody.velocity.y = 0;
+        if (jmp && Math.abs(pBody.velocity.y) < 0.25 && !noclip) pBody.velocity.y = av.j;
+      }
+
+      if (tIdx === 0) {
+        const hov = !grabB ? findTarget() : grabB;
+        if (mode === 'motion') handMat.color.setHex(grabB ? 0x22c55e : (hov ? 0x4ade80 : 0xff9d2e));
+        if (zrH && !grabB && hov) grabB = hov;
+        else if (!zrH && grabB) {
+          if (mode === 'motion' && handVel.length() > 3.2) {
+            const tb = handVel.clone().clampLength(0, 26);
+            grabB.velocity.set(tb.x, tb.y + 2, tb.z);
+          }
+          grabB = null;
+        }
+        if (grabB) {
+          const { d } = ray(10);
+          const tp = mode === 'motion' ? handGroup.position.clone() : camera.position.clone().addScaledVector(d, hDist);
+          const wr = Math.min(1, av.g / grabB.mass);
+          grabB.velocity.set((tp.x - grabB.position.x) * 16 * wr, (tp.y - grabB.position.y) * 16 * wr, (tp.z - grabB.position.z) * 16 * wr);
+          grabB.angularVelocity.scale(0.82, grabB.angularVelocity);
+          if (zlP) { grabB.velocity.set(d.x * 22, d.y * 22 + 2, d.z * 22); grabB = null; }
+        }
+      } else if (mode === 'motion') handMat.color.setHex(0xff9d2e);
+
+      if (tIdx === 2 && zrP) { avIdx = (avIdx + 1) % 5; pBody.mass = avatars[avIdx].m; pBody.updateMassProperties(); hud(); }
+      if (tIdx === 3) {
+        if (!pMode) {
+          if (zrP) {
+            const { res, d } = ray(35);
+            const sp = res.hasHit ? new THREE.Vector3(res.hitPointWorld.x + res.hitNormalWorld.x, res.hitPointWorld.y + res.hitNormalWorld.y + 0.5, res.hitPointWorld.z + res.hitNormalWorld.z) : camera.position.clone().addScaledVector(d, 5);
+            spawnProp(sTypes[sIdx], sp);
+          }
+          if (zlP && objs.length) { const l = objs.pop(); scene.remove(l.m); world.removeBody(l.b); }
+        } else if (zrP || zlP) {
+          const { res } = ray(60);
+          if (res.hasHit && res.body.mass === 0) {
+            const p = zrP ? bPort : oPort; p.act = p.m.visible = true;
+            p.n.set(res.hitNormalWorld.x, res.hitNormalWorld.y, res.hitNormalWorld.z);
+            p.m.position.set(res.hitPointWorld.x + p.n.x * 0.05, res.hitPointWorld.y + p.n.y * 0.05, res.hitPointWorld.z + p.n.z * 0.05);
+            p.m.lookAt(p.m.position.clone().add(p.n));
+          }
+        }
+      }
+      if (tIdx === 4) {
+        if (zlH && !gravB) { const { res } = ray(25); if (res.hasHit && res.body?.mass > 0) gravB = res.body; }
+        else if (!zlH) gravB = null;
+        if (gravB) {
+          const { d } = ray(10), hp = camera.position.clone().addScaledVector(d, 3);
+          gravB.velocity.set((hp.x - gravB.position.x) * 18, (hp.y - gravB.position.y) * 18, (hp.z - gravB.position.z) * 18);
+          if (zrP) { gravB.velocity.set(d.x * 42, d.y * 42 + 3, d.z * 42); gravB = null; }
+        } else if (zrP) { const { res, d } = ray(25); if (res.hasHit && res.body?.mass > 0) res.body.velocity.set(d.x * 38, d.y * 38 + 4, d.z * 38); }
+      }
+
+      if (bPort.act && oPort.act && pCool <= 0) {
+        const tp = b => {
+          const p = new THREE.Vector3(b.position.x, b.position.y, b.position.z);
+          if (p.distanceTo(bPort.m.position) < 1.35) {
+            const e = oPort.m.position.clone().addScaledVector(oPort.n, 1.6); b.position.set(e.x, e.y, e.z);
+            const s = Math.max(b.velocity.length(), 7); b.velocity.set(oPort.n.x * s, oPort.n.y * s, oPort.n.z * s); pCool = 0.4;
+          } else if (p.distanceTo(oPort.m.position) < 1.35) {
+            const e = bPort.m.position.clone().addScaledVector(bPort.n, 1.6); b.position.set(e.x, e.y, e.z);
+            const s = Math.max(b.velocity.length(), 7); b.velocity.set(bPort.n.x * s, bPort.n.y * s, bPort.n.z * s); pCool = 0.4;
+          }
+        };
+        tp(pBody); objs.forEach(o => tp(o.b));
+      }
+
+      world.step(1 / 60, dt, 3);
+      camera.position.set(pBody.position.x, pBody.position.y + (av.h - 0.55), pBody.position.z);
+      objs.forEach(o => { o.m.position.copy(o.b.position); o.m.quaternion.copy(o.b.quaternion); });
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+    animate();
+  </script>
+</body>
+</html>
